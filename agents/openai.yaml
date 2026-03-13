@@ -1,0 +1,4 @@
+interface:
+  display_name: "global-memory"
+  short_description: "Layered global memory for user habits"
+  default_prompt: "Use $global-memory to capture, consolidate, and apply my collaboration preferences."
