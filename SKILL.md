@@ -56,6 +56,7 @@ Use this lightweight policy by default for medium or large tasks:
 1. At task start, review long-term memory and only the most relevant short-term entries.
 2. During execution, queue possible observations with `note` instead of writing directly into memory.
 3. At task end, flush the session with `flush --consolidate`.
+4. When generating documents, reports, or other structured deliverables, prefer Chinese unless the user explicitly requests another language.
 
 Do not force this workflow onto casual chat, one-line requests, or tasks with no likely memory value.
 

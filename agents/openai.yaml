@@ -1,4 +1,4 @@
 interface:
   display_name: "global-memory"
   short_description: "Layered global memory for user habits"
-  default_prompt: "Use $global-memory to capture, consolidate, and apply my collaboration preferences."
+  default_prompt: "Use $global-memory to capture, consolidate, and apply my collaboration preferences. Prefer Chinese for generated documents and structured writeups unless I explicitly ask for another language."
