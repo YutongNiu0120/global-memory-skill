@@ -1,95 +1,82 @@
 # global-memory
 
-[中文介绍](#中文说明)
+[中文介绍](README.zh-CN.md)
 
-`global-memory` is a text-first Codex/OpenAI skill for maintaining durable collaboration preferences across tasks.
+## 1. One-Line Summary
 
-It provides:
+`global-memory` is a Codex skill that gives the agent a persistent cross-task memory for stable user preferences and collaboration habits.
 
-- A layered memory model with `inbox`, `short-term`, `long-term`, and `archive`
-- A lightweight workflow for note capture, consolidation, promotion, and forgetting
-- Direct Markdown editing by the model, without requiring Python at runtime
+## 2. What Problem It Solves
 
-This skill is useful when you want the agent to remember stable preferences such as language, output style, planning habits, engineering defaults, and standing constraints without polluting each session with one-off notes.
+Across repeated sessions, an agent often has to rediscover the same user preferences again and again:
 
-## Repository Layout
+- which language to use by default
+- whether to give a plan before execution
+- how concise or detailed the output should be
+- which engineering habits or standing constraints should be respected
+
+That repeated clarification slows collaboration down and creates unnecessary noise.
+
+`global-memory` turns those recurring preferences into reusable working memory, so the agent can carry stable collaboration context across tasks instead of reconstructing it every time.
+
+## 3. Core Features
+
+- Maintain persistent global memory across tasks
+- Separate candidate observations, recent preferences, durable rules, and archived history
+- Capture stable habits such as language, workflow, output style, and engineering defaults
+- Let the agent read and update memory directly in Markdown
+- Override outdated preferences while keeping a record in archive
+- Prefer Chinese for generated documents and structured deliverables unless the user switches language
+
+## 4. Workflow
 
 ```text
-.
-├── agents/
-│   └── openai.yaml
-├── references/
-│   └── memory-model.md
-├── templates/
-│   ├── archive.md
-│   ├── inbox.md
-│   ├── long-term.md
-│   └── short-term.md
-└── SKILL.md
+task start
+   ↓
+read long-term memory
+   ↓
+read only relevant short-term memory
+   ↓
+do the work
+   ↓
+write weak observations into inbox
+   ↓
+promote stable rules / archive obsolete ones
 ```
 
-## Core Model
+Recommended memory flow:
 
-- `inbox.md`: session observations waiting for review
-- `short-term.md`: tentative or recent habits
+1. Read `long-term.md` first
+2. Read only relevant entries from `short-term.md`
+3. During the task, write uncertain observations into `inbox.md`
+4. Promote stable patterns into `short-term.md` or `long-term.md`
+5. Move outdated or conflicting rules into `archive.md`
+
+## 5. Safety Design
+
+- Memory is stored in plain Markdown files that are easy to inspect
+- Weak observations go to `inbox.md` first instead of immediately polluting durable memory
+- Stable rules and tentative preferences are stored in separate layers
+- Obsolete rules are archived instead of silently discarded
+- Explicit new user instructions always override stored memory
+- Secrets, tokens, passwords, private personal data, and regulated data must not be stored
+
+## 6. Technical Implementation
+
+`global-memory` uses a text-first layered memory model:
+
+- `inbox.md`: weak or fresh observations from the current task
+- `short-term.md`: recent or tentative preferences
 - `long-term.md`: durable collaboration rules
-- `archive.md`: promoted, expired, overridden, or forgotten entries
+- `archive.md`: overridden, expired, or low-value memory
 
-Default storage root:
+Default memory root:
 
 ```text
 ~/.codex/memories/global-memory/
 ```
 
-## Quick Start
-
-Create a memory folder and copy the templates:
-
-```text
-~/.codex/memories/global-memory/
-├── inbox.md
-├── short-term.md
-├── long-term.md
-└── archive.md
-```
-
-## How To Use In Codex
-
-1. Place this folder under your Codex skills directory.
-2. Keep `SKILL.md` as the main entry point.
-3. Let the agent read `long-term.md` first, then only the relevant entries from `short-term.md`.
-4. During the task, write weak observations into `inbox.md`.
-5. Near the end of the task, prune `inbox.md`, promote stable items, and archive obsolete ones.
-
-## Notes
-
-- No Python runtime is required for normal usage.
-- The model should read and update the Markdown files directly.
-- Do not store secrets, tokens, passwords, or regulated personal data.
-- Prefer reusable abstractions over long raw conversation excerpts.
-- When generating documents or structured deliverables, prefer Chinese unless the user explicitly requests another language.
-
-For the detailed memory schema and promotion/forgetting rules, see `references/memory-model.md`.
-
-## 中文说明
-
-`global-memory` 是一个面向 Codex/OpenAI 技能体系的纯文本全局记忆技能，用来跨任务维护用户的稳定协作偏好。
-
-它适合沉淀这类会反复出现的信息：
-
-- 默认回复语言
-- 是否先给方案再执行
-- 输出风格偏好
-- 工程习惯与长期约束
-
-### 核心能力
-
-- 用 `inbox / short-term / long-term / archive` 四层结构管理记忆
-- 支持“先记录候选观察，再整理沉淀”的轻量工作流
-- 直接由 AI 读写 Markdown 文件，不依赖 Python 运行时
-- 通过固定格式和 `key` 减少重复与噪音
-
-### 目录结构
+Repository layout:
 
 ```text
 .
@@ -105,22 +92,9 @@ For the detailed memory schema and promotion/forgetting rules, see `references/m
 └── SKILL.md
 ```
 
-### 记忆分层
+## 7. Quick Start
 
-- `inbox.md`：当前会话中的候选观察
-- `short-term.md`：短期、待验证的偏好
-- `long-term.md`：稳定、可复用的协作规则
-- `archive.md`：已提升、过期、被覆盖或遗忘的记录
-
-默认存储路径：
-
-```text
-~/.codex/memories/global-memory/
-```
-
-### 快速开始
-
-创建记忆目录，并拷贝模板：
+Place this skill in your Codex skills directory, then create a memory folder like this:
 
 ```text
 ~/.codex/memories/global-memory/
@@ -130,18 +104,12 @@ For the detailed memory schema and promotion/forgetting rules, see `references/m
 └── archive.md
 ```
 
-### 使用建议
+Recommended usage:
 
-1. 任务开始时先读 `long-term.md`，再按需读相关的 `short-term.md`。
-2. 执行过程中把弱观察先写入 `inbox.md`，不要立刻污染正式记忆。
-3. 任务结束前整理 `inbox.md`，把稳定项提升到 `short-term.md` 或 `long-term.md`。
-4. 用户明确改变偏好时，把旧规则移到 `archive.md`，再写入新规则。
+1. Use `SKILL.md` as the entry point
+2. Start each substantial task by reading `long-term.md`
+3. Read only the relevant entries from `short-term.md`
+4. Record weak observations in `inbox.md` during the task
+5. Consolidate stable rules into `short-term.md` or `long-term.md` before finishing
 
-### 注意事项
-
-- 不要存储密码、令牌、隐私信息或受监管数据
-- 不要存储没有复用价值的一次性任务细节
-- 当前用户消息优先级永远高于历史记忆
-- 生成文档和结构化输出时，默认优先中文
-
-更完整的字段定义和提升/遗忘规则见 `references/memory-model.md`。如需独立中文文档，也可以查看 `README.zh-CN.md`。
+For the detailed memory schema and promotion rules, see `references/memory-model.md`.
