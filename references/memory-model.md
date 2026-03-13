@@ -1,96 +1,104 @@
 # Memory Model
 
-## Storage Layout
+## Positioning
 
-Default root: `~/.codex/memories/global-memory`
+This skill uses a text-first memory model. The agent reads and edits plain Markdown files directly instead of calling a Python CLI.
 
-- `inbox.json`: session-scoped observations waiting to be reviewed or flushed
-- `short-term.json`: tentative or recent observations
-- `long-term.json`: stable collaboration rules
-- `archive.json`: expired, overridden, promoted, or forgotten entries
+Default root:
 
-Each file stores a JSON object with `version`, `tier`, `updated_at`, and `entries`.
+```text
+~/.codex/memories/global-memory/
+```
 
-## Inbox Fields
+Recommended files:
 
-Inbox observations represent candidate memories collected during a task before they are committed to the memory store.
+- `inbox.md`
+- `short-term.md`
+- `long-term.md`
+- `archive.md`
 
-- `id`: stable inbox note id such as `ib-...`
-- `session_id`: identifier for the current task or conversation
-- `target_tier`: usually `short-term`; use `long-term` only for very strong explicit instructions
-- `key`: canonical dedupe key to use when the note is flushed
-- `summary`: concrete observation from the session
-- `abstract_summary`: reusable abstraction to keep if the pattern stabilizes
-- `category`, `scope`, `confidence`, `tags`: same meaning as live memory fields
-- `ttl_days`: short-term expiry to apply after flush
-- `evidence_note`: brief note for the future evidence trail
-- `override`: whether flushing this note should retire older conflicting memories with the same key
-- `captured_at`: note capture time
+## Why Text-First
 
-Use the inbox to prevent low-value noise from immediately entering short-term memory.
+- Lower runtime overhead
+- Easier for the model to inspect and update directly
+- Transparent to the user
+- Simple to version with Git or review manually
 
-## Shared Fields
+The tradeoff is that consolidation is a skill behavior, not a backend guarantee. Keep the format simple so the model can maintain it reliably.
 
-Every live entry uses these common fields:
+## Entry Shape
 
-- `id`: stable entry id such as `st-...` or `lt-...`
-- `key`: canonical dedupe key for the rule
-- `summary`: current human-readable memory statement
-- `abstract_summary`: optional promotion-ready abstraction
-- `category`: coarse type such as `language`, `workflow`, or `constraints`
-- `scope`: default `global`; reserve narrower scopes for future extensions
-- `confidence`: `0.0` to `1.0`
-- `evidence_count`: number of observations supporting the memory
-- `evidence`: recent evidence notes with timestamps
-- `tags`: optional labels for filtering
-- `created_at`: first capture time
-- `last_seen_at`: most recent observation time
-- `last_used_at`: most recent time the memory helped in real work
-
-## Short-Term Fields
-
-Short-term entries add:
-
-- `expires_at`: automatic expiry point
-
-Use short-term memory for fresh observations, unstable habits, or patterns that still need confirmation.
-
-## Long-Term Fields
-
-Long-term entries add:
-
-- `last_validated_at`: most recent explicit validation or helpful reuse
-- `last_decay_at`: most recent automatic decay pass
-- `source_ids`: short-term entries that were promoted into this rule
-
-Use long-term memory only for compact, reusable rules that should survive across tasks.
-
-## Promotion Rules
-
-- Add new observations to short-term memory first.
-- Reuse the same `key` to reinforce an existing memory instead of creating duplicates.
-- Promote a short-term entry when its `evidence_count` reaches the promotion threshold.
-- Prefer `abstract_summary` over raw `summary` when promoting to long-term memory.
-- Use `--tier long` only when the user gives a strong explicit instruction that is already stable enough to keep.
+Use one heading per memory key. Keep the fields compact and predictable.
 
 Example:
 
-- Short-term summary: `User asked for a plan before implementing a new global skill.`
-- Long-term abstraction: `For reusable or system-level changes, present a plan before implementation.`
+```md
+### `response-language`
 
-## Forgetting Rules
+- category: `language`
+- confidence: `0.95`
+- last_validated: `2026-03-13`
+- summary: 用户默认偏好中文交流。
+- rule: 默认使用中文，除非用户明确切换语言。
+- evidence:
+  - `2026-03-13`: 用户持续使用中文，并要求输出文档优先中文。
+```
 
-- Short-term memory expires automatically when `expires_at` passes.
-- Long-term memory decays when it has not been used or validated for a long period.
-- Archive long-term entries once decay pushes confidence below the forget threshold.
-- Use `--override` to immediately retire conflicting active memories when the user changes direction.
-- Use `forget` when a memory is clearly wrong, obsolete, or harmful.
+## File Roles
 
-## Practical Guidance
+### `inbox.md`
 
-- Only store facts that reduce future clarification cost.
-- Keep evidence notes short and concrete.
-- Avoid storing large conversation excerpts; store the conclusion and a short note instead.
-- If a memory is useful only for one phase of one task, let it stay short-term and expire.
-- If several memories point to the same stable habit, merge them through a shared `key` and promote the abstraction.
-- For medium or large tasks, prefer the lightweight rhythm: read memory at the start, queue session notes during work, and flush them at the end.
+Use for candidate observations from the current task.
+
+- Low confidence is acceptable
+- Prefer concrete observations
+- Decide later whether to discard, keep short-term, or promote
+
+### `short-term.md`
+
+Use for recent or tentative preferences.
+
+- Keep only likely reusable items
+- Add `expires_after` or a similar decay hint
+- Promote only after repeated evidence or a strong explicit signal
+
+### `long-term.md`
+
+Use for durable collaboration rules.
+
+- Keep entries abstract and reusable
+- Prefer one clear rule over many similar notes
+- Update evidence instead of creating duplicates
+
+### `archive.md`
+
+Use for overridden, expired, or low-value memories.
+
+- Keep a short reason
+- Optionally link the replacement key
+- Do not let archive grow without bound; summarize when needed
+
+## Promotion Rules
+
+- Start in `inbox.md` when confidence is low or the pattern is new.
+- Move to `short-term.md` when the observation is likely reusable.
+- Move to `long-term.md` only after repeated evidence or a strong explicit instruction.
+- Let the current user message override stored memory immediately.
+- Archive the old rule when a new rule clearly replaces it.
+
+## Writing Rules
+
+- Do not store secrets, tokens, passwords, private personal data, or regulated data.
+- Do not store one-off task details with no reuse value.
+- Prefer short evidence notes over long conversation excerpts.
+- Keep one canonical `key` per stable rule.
+- When generating documents, reports, or structured deliverables, prefer Chinese unless the user explicitly requests another language.
+
+## Recommended Rhythm
+
+1. Read `long-term.md` first.
+2. Read only the relevant entries from `short-term.md`.
+3. During the task, write weak or fresh observations into `inbox.md`.
+4. Before finishing, prune `inbox.md`.
+5. Promote strong items into `short-term.md` or `long-term.md`.
+6. Archive obsolete items in `archive.md`.

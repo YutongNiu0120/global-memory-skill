@@ -7,15 +7,21 @@ description: "Maintain a global memory for user habits and working preferences w
 
 ## Overview
 
-Use this skill to keep a global memory that survives across tasks. Treat short-term memory as a staging area for recent observations, promote repeated patterns into long-term memory, and forget stale or low-value memories before the store becomes noisy.
+Use this skill to keep a global memory that survives across tasks. This version is text-first: the agent should read and edit plain Markdown memory files directly instead of calling Python scripts.
 
 ## Memory Layers
+
+### Inbox
+
+- Store weak or fresh observations from the current task.
+- Keep entries concrete and easy to discard.
+- Promote only if they look reusable.
 
 ### Short-term memory
 
 - Store recent or tentative observations that may still change.
 - Capture concrete evidence such as phrasing, requests, or repeated corrections.
-- Give each entry a stable `key`, an evidence note, and a TTL.
+- Give each entry a stable `key`, concise evidence, and a decay hint.
 
 Examples:
 
@@ -53,9 +59,9 @@ Examples:
 
 Use this lightweight policy by default for medium or large tasks:
 
-1. At task start, review long-term memory and only the most relevant short-term entries.
-2. During execution, queue possible observations with `note` instead of writing directly into memory.
-3. At task end, flush the session with `flush --consolidate`.
+1. At task start, review `long-term.md` and only the most relevant entries from `short-term.md`.
+2. During execution, write weak or fresh observations into `inbox.md`.
+3. At task end, prune `inbox.md`, then promote stable items into `short-term.md` or `long-term.md`.
 4. When generating documents, reports, or other structured deliverables, prefer Chinese unless the user explicitly requests another language.
 
 Do not force this workflow onto casual chat, one-line requests, or tasks with no likely memory value.
@@ -66,89 +72,55 @@ Default memory root: `~/.codex/memories/global-memory`
 
 Files:
 
-- `inbox.json`
-- `short-term.json`
-- `long-term.json`
-- `archive.json`
+- `inbox.md`
+- `short-term.md`
+- `long-term.md`
+- `archive.md`
 
-Read [references/memory-model.md](references/memory-model.md) for field definitions, promotion rules, and forgetting heuristics.
+Copy the starter files from `templates/` into the memory root. Read [references/memory-model.md](references/memory-model.md) for field definitions, promotion rules, and forgetting heuristics.
 
-## Commands
+## Direct Editing Pattern
 
-Initialize the global store:
+Read durable rules first:
 
-```bash
-python scripts/manage_memory.py init
+```text
+long-term.md
 ```
 
-Queue candidate observations during a session:
+Read only relevant recent observations:
 
-```bash
-python scripts/manage_memory.py note --session current-task --category workflow --key plan-before-execution --summary "User asked to confirm the plan before implementation." --abstract-summary "For reusable or system-level changes, present a plan before implementation." --tag planning --evidence-note "User requested a plan before execution."
+```text
+short-term.md
 ```
 
-Review queued observations before writing them:
+Write tentative notes during the task:
 
-```bash
-python scripts/manage_memory.py list --tier inbox
+```text
+inbox.md
 ```
 
-Review current memory:
+Promote stable rules by rewriting them into:
 
-```bash
-python scripts/manage_memory.py list --tier long
-python scripts/manage_memory.py list --tier short --limit 10
-```
-
-Capture a tentative preference:
-
-```bash
-python scripts/manage_memory.py add --tier short --category workflow --scope global --key plan-before-execution --summary "User prefers a plan before implementation for reusable changes." --abstract-summary "For reusable or system-level changes, present a plan before implementation." --tag planning --evidence-note "Requested a plan before creating a global memory skill."
-```
-
-Override an outdated preference:
-
-```bash
-python scripts/manage_memory.py add --tier short --override --category language --scope global --key response-language --summary "User currently prefers replies in Chinese." --abstract-summary "Default to Chinese unless the user switches languages." --tag language --evidence-note "Conversation continued in Chinese."
-```
-
-Mark a memory as validated in real use:
-
-```bash
-python scripts/manage_memory.py touch --tier long --key plan-before-execution --note "Plan-first preference helped on a cross-project change."
-```
-
-Consolidate, promote, and forget:
-
-```bash
-python scripts/manage_memory.py consolidate
-```
-
-Flush session observations into memory, then consolidate:
-
-```bash
-python scripts/manage_memory.py flush --session current-task --consolidate
-```
-
-Remove a bad or obsolete memory:
-
-```bash
-python scripts/manage_memory.py forget --tier long --key response-language --reason "User switched to English and asked to keep future replies in English."
+```text
+short-term.md
+long-term.md
+archive.md
 ```
 
 ## Heuristics
 
 - Prefer one memory per stable rule. Reinforce existing entries by key instead of creating near-duplicates.
-- Write the short-term `summary` as a concrete observation. Write `abstract_summary` as the reusable rule to promote later.
-- Use `--override` when the user explicitly changes a preference and the old rule should stop applying immediately.
+- Write short-term `summary` as a concrete observation. Write long-term `rule` as the reusable abstraction.
+- When the user explicitly changes a preference, archive the old rule and write the new one immediately.
 - Use categories such as `language`, `workflow`, `output-style`, `engineering`, `tooling`, or `constraints`.
 - Keep long-term memory compact. If two entries can be merged into one clearer rule, consolidate them.
 
 ## Collaboration Rhythm
 
-1. At the start of substantial work, read long-term memory and the most relevant short-term entries.
-2. During the task, queue candidate observations with `note` instead of immediately writing everything into memory.
-3. Before finishing the task, review `inbox.json` or `list --tier inbox` to discard weak observations.
-4. Flush the session with `flush --consolidate` so useful observations become short-term memory and repeated patterns can promote into long-term memory.
-5. Let explicit new user instructions override stored memory on the next turn.
-6. Treat this rhythm as the default operating mode for medium or large tasks unless the user asks for a different workflow.
+1. At the start of substantial work, read `long-term.md` and the most relevant entries from `short-term.md`.
+2. During the task, append candidate observations to `inbox.md` instead of immediately rewriting durable memory.
+3. Before finishing the task, review `inbox.md` and discard weak observations.
+4. Rewrite useful observations into `short-term.md` and promote repeated patterns into `long-term.md`.
+5. Move obsolete or conflicting rules into `archive.md`.
+6. Let explicit new user instructions override stored memory on the next turn.
+7. Treat this rhythm as the default operating mode for medium or large tasks unless the user asks for a different workflow.

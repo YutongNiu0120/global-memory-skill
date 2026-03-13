@@ -2,13 +2,13 @@
 
 [中文介绍](#中文说明)
 
-`global-memory` is a Codex/OpenAI skill for maintaining durable collaboration preferences across tasks.
+`global-memory` is a text-first Codex/OpenAI skill for maintaining durable collaboration preferences across tasks.
 
 It provides:
 
 - A layered memory model with `inbox`, `short-term`, `long-term`, and `archive`
 - A lightweight workflow for note capture, consolidation, promotion, and forgetting
-- A Python CLI to initialize, inspect, update, flush, and decay memory entries
+- Direct Markdown editing by the model, without requiring Python at runtime
 
 This skill is useful when you want the agent to remember stable preferences such as language, output style, planning habits, engineering defaults, and standing constraints without polluting each session with one-off notes.
 
@@ -20,75 +20,60 @@ This skill is useful when you want the agent to remember stable preferences such
 │   └── openai.yaml
 ├── references/
 │   └── memory-model.md
-├── scripts/
-│   └── manage_memory.py
+├── templates/
+│   ├── archive.md
+│   ├── inbox.md
+│   ├── long-term.md
+│   └── short-term.md
 └── SKILL.md
 ```
 
 ## Core Model
 
-- `inbox.json`: session observations waiting for review
-- `short-term.json`: tentative or recent habits
-- `long-term.json`: durable collaboration rules
-- `archive.json`: promoted, expired, overridden, or forgotten entries
+- `inbox.md`: session observations waiting for review
+- `short-term.md`: tentative or recent habits
+- `long-term.md`: durable collaboration rules
+- `archive.md`: promoted, expired, overridden, or forgotten entries
 
 Default storage root:
 
 ```text
-~/.codex/memories/global-memory
+~/.codex/memories/global-memory/
 ```
 
 ## Quick Start
 
-Initialize the store:
+Create a memory folder and copy the templates:
 
-```bash
-python scripts/manage_memory.py init
-```
-
-Review long-term memory:
-
-```bash
-python scripts/manage_memory.py list --tier long
-```
-
-Queue a candidate observation:
-
-```bash
-python scripts/manage_memory.py note \
-  --session current-task \
-  --category workflow \
-  --key plan-before-execution \
-  --summary "User asked for a plan before implementation." \
-  --abstract-summary "For reusable or system-level changes, present a plan before implementation." \
-  --tag planning \
-  --evidence-note "Explicit user request."
-```
-
-Flush session notes and consolidate:
-
-```bash
-python scripts/manage_memory.py flush --session current-task --consolidate
+```text
+~/.codex/memories/global-memory/
+├── inbox.md
+├── short-term.md
+├── long-term.md
+└── archive.md
 ```
 
 ## How To Use In Codex
 
 1. Place this folder under your Codex skills directory.
 2. Keep `SKILL.md` as the main entry point.
-3. Let the agent read long-term memory first, then only the relevant short-term entries.
-4. Queue observations during a task and consolidate near the end of the task.
+3. Let the agent read `long-term.md` first, then only the relevant entries from `short-term.md`.
+4. During the task, write weak observations into `inbox.md`.
+5. Near the end of the task, prune `inbox.md`, promote stable items, and archive obsolete ones.
 
 ## Notes
 
+- No Python runtime is required for normal usage.
+- The model should read and update the Markdown files directly.
 - Do not store secrets, tokens, passwords, or regulated personal data.
 - Prefer reusable abstractions over long raw conversation excerpts.
-- Use `--override` when the user explicitly changes a standing preference.
+- When generating documents or structured deliverables, prefer Chinese unless the user explicitly requests another language.
 
 For the detailed memory schema and promotion/forgetting rules, see `references/memory-model.md`.
 
 ## 中文说明
 
-`global-memory` 是一个面向 Codex/OpenAI 技能体系的全局记忆技能，用来跨任务维护用户的稳定协作偏好。
+`global-memory` 是一个面向 Codex/OpenAI 技能体系的纯文本全局记忆技能，用来跨任务维护用户的稳定协作偏好。
 
 它适合沉淀这类会反复出现的信息：
 
@@ -101,8 +86,8 @@ For the detailed memory schema and promotion/forgetting rules, see `references/m
 
 - 用 `inbox / short-term / long-term / archive` 四层结构管理记忆
 - 支持“先记录候选观察，再整理沉淀”的轻量工作流
-- 提供 `manage_memory.py` 命令行工具，用于初始化、查看、写入、提升、遗忘记忆
-- 通过 `key` 和证据计数减少重复与噪音
+- 直接由 AI 读写 Markdown 文件，不依赖 Python 运行时
+- 通过固定格式和 `key` 减少重复与噪音
 
 ### 目录结构
 
@@ -112,68 +97,51 @@ For the detailed memory schema and promotion/forgetting rules, see `references/m
 │   └── openai.yaml
 ├── references/
 │   └── memory-model.md
-├── scripts/
-│   └── manage_memory.py
+├── templates/
+│   ├── archive.md
+│   ├── inbox.md
+│   ├── long-term.md
+│   └── short-term.md
 └── SKILL.md
 ```
 
 ### 记忆分层
 
-- `inbox.json`：当前会话中的候选观察
-- `short-term.json`：短期、待验证的偏好
-- `long-term.json`：稳定、可复用的协作规则
-- `archive.json`：已提升、过期、被覆盖或遗忘的记录
+- `inbox.md`：当前会话中的候选观察
+- `short-term.md`：短期、待验证的偏好
+- `long-term.md`：稳定、可复用的协作规则
+- `archive.md`：已提升、过期、被覆盖或遗忘的记录
 
 默认存储路径：
 
 ```text
-~/.codex/memories/global-memory
+~/.codex/memories/global-memory/
 ```
 
 ### 快速开始
 
-初始化：
+创建记忆目录，并拷贝模板：
 
-```bash
-python scripts/manage_memory.py init
-```
-
-查看长期记忆：
-
-```bash
-python scripts/manage_memory.py list --tier long
-```
-
-记录候选观察：
-
-```bash
-python scripts/manage_memory.py note \
-  --session current-task \
-  --category workflow \
-  --key plan-before-execution \
-  --summary "用户要求实现前先给方案。" \
-  --abstract-summary "对于可复用或系统级改动，优先先给方案再实施。" \
-  --tag planning \
-  --evidence-note "用户明确提出先出方案。"
-```
-
-整理并写入正式记忆：
-
-```bash
-python scripts/manage_memory.py flush --session current-task --consolidate
+```text
+~/.codex/memories/global-memory/
+├── inbox.md
+├── short-term.md
+├── long-term.md
+└── archive.md
 ```
 
 ### 使用建议
 
-1. 任务开始时先读长期记忆，再按需读相关短期记忆。
-2. 执行过程中优先把观察写入 `inbox`，不要立刻污染正式记忆。
-3. 任务结束时统一 `flush --consolidate`。
-4. 用户明确改变偏好时，用 `--override` 覆盖旧规则。
+1. 任务开始时先读 `long-term.md`，再按需读相关的 `short-term.md`。
+2. 执行过程中把弱观察先写入 `inbox.md`，不要立刻污染正式记忆。
+3. 任务结束前整理 `inbox.md`，把稳定项提升到 `short-term.md` 或 `long-term.md`。
+4. 用户明确改变偏好时，把旧规则移到 `archive.md`，再写入新规则。
 
 ### 注意事项
 
 - 不要存储密码、令牌、隐私信息或受监管数据
 - 不要存储没有复用价值的一次性任务细节
 - 当前用户消息优先级永远高于历史记忆
+- 生成文档和结构化输出时，默认优先中文
 
 更完整的字段定义和提升/遗忘规则见 `references/memory-model.md`。如需独立中文文档，也可以查看 `README.zh-CN.md`。
